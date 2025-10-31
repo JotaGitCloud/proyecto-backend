@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GameVault</title>  
+  <link rel="stylesheet" href="{{ url_for('static', filename='estilos.css') }}">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/vanguard.ico') }}">
+</head>
+<body>
+  <header>
+    <nav class="navbar">
+      <h1 class="logo">GameVault</h1>
+
+      <ul class="nav-links">
+        <li><a href="#" data-seccion="Inicio">Inicio</a></li>
+        <li><a href="#" data-seccion="Explorar">Explorar</a></li>
+        <li><a href="#" data-seccion="Comunidad">Comunidad</a></li>
+        <li><a href="#" data-seccion="Perfil">Perfil</a></li>
+        <li><a href="#" data-seccion="Acceso">Acceso</a></li>
+      </ul>
+
+      {% if nombre %}
+      <div class="user-info">
+        <span>Bienvenido, <strong>{{ nombre }}</strong></span>
+        <a href="{{ url_for('logout') }}" class="btn-logout">Cerrar sesión</a>
+      </div>
+      {% endif %}
+    </nav>
+  </header>
+
+  <main id="contenido-principal" role="main" aria-live="polite">
+    <!-- El contenido se inyecta desde static/scripts.js -->
+  </main>
+
+  <footer>
+    <p>&copy; 2025 GameVault. Todos los derechos reservados.</p>
+  </footer>
+
+  <script defer src="{{ url_for('static', filename='scripts.js') }}"></script>
+
+  <noscript>
+    <style>
+      main#contenido-principal { padding: 40px; color: #ccc; }
+    </style>
+    <main>
+      <p>Necesitas activar JavaScript para ver la página correctamente.</p>
+    </main>
+  </noscript>
+</body>
+</html>
