@@ -10,15 +10,17 @@
 <body>
   <header>
     <nav class="navbar">
-      <h1 class="logo">GameVault</h1>
+      <div class="nav-left">
+        <h1 class="logo">GameVault</h1>
 
-      <ul class="nav-links">
-        <li><a href="#" data-seccion="Inicio">Inicio</a></li>
-        <li><a href="#" data-seccion="Explorar">Explorar</a></li>
-        <li><a href="#" data-seccion="Comunidad">Comunidad</a></li>
-        <li><a href="#" data-seccion="Perfil">Perfil</a></li>
-        <li><a href="#" data-seccion="Acceso">Acceso</a></li>
-      </ul>
+        <ul class="nav-links">
+          <li><a href="#" data-seccion="Inicio">Inicio</a></li>
+          <li><a href="#" data-seccion="Explorar">Explorar</a></li>
+          <li><a href="#" data-seccion="Comunidad">Comunidad</a></li>
+          <li><a href="#" data-seccion="Subir">Subir Juego</a></li>
+          <li><a href="#" data-seccion="Perfil">Perfil</a></li>
+        </ul>
+      </div>
 
       {% if nombre %}
       <div class="user-info">
@@ -26,12 +28,11 @@
         <a href="{{ url_for('logout') }}" class="btn-logout">Cerrar sesión</a>
       </div>
       {% endif %}
+      
     </nav>
   </header>
 
-  <main id="contenido-principal" role="main" aria-live="polite">
-    <!-- El contenido se inyecta desde static/scripts.js -->
-  </main>
+  <main id="contenido-principal" role="main" aria-live="polite"></main>
 
   <footer>
     <p>&copy; 2025 GameVault. Todos los derechos reservados.</p>
@@ -49,3 +50,4 @@
   </noscript>
 </body>
 </html>
+
