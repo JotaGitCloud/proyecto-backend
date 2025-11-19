@@ -1,9 +1,16 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, make_response
 import sqlite3, os, hashlib, requests
+import time
 
 app = Flask(__name__)
 app.secret_key = "gamevault_key"
 DB_PATH = os.path.join(os.getcwd(), 'database', 'gamevault.db')
+
+CACHE_TTL = 60 * 5  
+_cache = {"games": None, "ts": 0}
+
+
+STEAM_APPIDS = [381210, 367520, 394360, 570, 730]
 
 def conectar_db():
     conn = sqlite3.connect(DB_PATH)
@@ -76,15 +83,12 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-# -----------------------------
-# API DE JUEGOS DE STEAM
-# -----------------------------
 @app.route('/api/juegos_steam')
 def juegos_steam():
     import requests, random
 
     try:
-        # 1. Obtener TODA la lista de juegos
+       
         url = "https://api.steampowered.com/ISteamApps/GetAppList/v2/"
         resp = requests.get(url, timeout=10)
 
@@ -104,7 +108,6 @@ def juegos_steam():
             appid = j["appid"]
             nombre = j["name"]
 
-            # Imagen del header (no siempre existe)
             img_url = f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/header.jpg"
 
             juegos_final.append({
@@ -117,3 +120,53 @@ def juegos_steam():
 
     except Exception as e:
         return {"error": f"Error interno: {str(e)}"}, 500
+
+def fetch_steam_app(appid, lang="spanish"):
+    url = f"https://store.steampowered.com/api/appdetails?appids={appid}&l={lang}"
+    try:
+        r = requests.get(url, timeout=6)
+        r.raise_for_status()
+        data = r.json().get(str(appid), {})
+        if data.get("success") and data.get("data"):
+            d = data["data"]
+            return {
+                "id": appid,
+                "titulo": d.get("name"),
+                "descripcion": d.get("short_description") or d.get("about_the_game") or "",
+                "imagen": d.get("header_image") or d.get("screenshots",[{}])[0].get("path_thumbnail"),
+                "metacritic": d.get("metacritic", {}).get("score"),
+            }
+    except Exception:
+        return None
+    return None
+
+def get_games():
+    now = time.time()
+    if _cache["games"] and (now - _cache["ts"] < CACHE_TTL):
+        return _cache["games"]
+    results = []
+    for aid in STEAM_APPIDS:
+        g = fetch_steam_app(aid)
+        if g:
+            results.append(g)
+    if not results:
+       
+        results = [
+            {"id": 381210, "titulo": "Dead by Daylight", "descripcion": "Horror multijugador 4v1.", "imagen": "https://cdn.cloudflare.steamstatic.com/steam/apps/381210/header.jpg"},
+            {"id": 367520, "titulo": "Hollow Knight", "descripcion": "Aventura metroidvania.", "imagen": "https://cdn.cloudflare.steamstatic.com/steam/apps/367520/header.jpg"},
+            {"id": 394360, "titulo": "Hearts of Iron IV", "descripcion": "Estrategia militar.", "imagen": "https://cdn.cloudflare.steamstatic.com/steam/apps/394360/header.jpg"},
+        ]
+    _cache["games"] = results
+    _cache["ts"] = now
+    return results
+
+@app.route("/")
+def index():
+    return render_template("base.html")
+
+@app.route("/api/juegos")
+def api_juegos():
+    juegos = get_games()
+    resp = make_response(jsonify(juegos))
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
