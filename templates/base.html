@@ -3,11 +3,56 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>GameVault</title>  
-  <link rel="stylesheet" href="{{ url_for('static', filename='estilos.css') }}">
+  <title>GameVault</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='estilos.css') }}" id="main-css">
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/vanguard.ico') }}">
+  <style id="critical-css">
+ 
+    html,body{height:100%;margin:0;padding:0}
+    body{background:#0e0e0e;color:#f0f0f0;font-family:Segoe UI,Tahoma,sans-serif}
+    header{background:#151515;padding:12px 20px;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+    .logo{color:#ff4655;font-weight:700;font-size:22px;display:inline-block;margin:0}
+    .nav-links{list-style:none;display:flex;gap:18px;margin:0;padding:0;align-items:center}
+    .nav-links a{color:#f0f0f0;text-decoration:none}
+    main#contenido-principal{padding:20px}
+    footer{padding:12px 20px;color:#aaa;text-align:center}
+  </style>
+  <script>
+    (function(){
+      function cssApplied(){
+        try{
+          var bg = window.getComputedStyle(document.body).backgroundColor;
+          return bg && (bg.indexOf('14') !== -1 || bg.indexOf('14, 14, 14') !== -1 || bg.indexOf('0e') !== -1);
+        }catch(e){ return false; }
+      }
+      if (!cssApplied()){
+        var attempts = [
+          "{{ url_for('static', filename='estilos.css') }}",
+          "/static/estilos.css",
+          "/estilos.css",
+          "../estilos.css"
+        ];
+        var loaded = false;
+        function tryLoad(i){
+          if (i >= attempts.length) return;
+          var l = document.createElement('link');
+          l.rel = 'stylesheet';
+          l.href = attempts[i];
+          l.onload = function(){
+            setTimeout(function(){
+              if (cssApplied()) loaded = true;
+              if (!loaded) tryLoad(i+1);
+            }, 80);
+          };
+          l.onerror = function(){ tryLoad(i+1); };
+          document.head.appendChild(l);
+        }
+        setTimeout(function(){ if (!cssApplied()) tryLoad(0); }, 120);
+      }
+    })();
+  </script>
 </head>
-<body>
+<body class="{% if nombre %}auth{% else %}not-auth{% endif %}">
   <header>
     <nav class="navbar">
       <div class="nav-left">
@@ -38,7 +83,7 @@
     <p>&copy; 2025 GameVault. Todos los derechos reservados.</p>
   </footer>
 
-  <script defer src="{{ url_for('static', filename='scripts.js') }}"></script>
+  <script src="{{ url_for('static', filename='scripts.js') }}"></script>
 
   <noscript>
     <style>
@@ -50,4 +95,3 @@
   </noscript>
 </body>
 </html>
-
