@@ -1,5 +1,5 @@
-from flask import Flask, render_template, request, redirect, url_for, session
-import sqlite3, os, hashlib
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+import sqlite3, os, hashlib, requests
 
 app = Flask(__name__)
 app.secret_key = "gamevault_key"
@@ -13,7 +13,6 @@ def conectar_db():
 @app.route('/')
 def inicio():
     if 'usuario_id' in session:
-        # Cuando el usuario ya está logueado, le pasamos su nombre real a base.html
         return render_template('base.html', nombre=session['nombre'])
     return redirect(url_for('login'))
 
@@ -64,12 +63,12 @@ def login():
         conn.close()
 
         if usuario:
-            # Guardamos en sesión los datos del usuario
             session['usuario_id'] = usuario['id']
             session['nombre'] = usuario['nombre']
             return redirect(url_for('inicio'))
         else:
             return render_template('login.html', error=True)
+
     return render_template('login.html', error=False)
 
 @app.route('/logout')
@@ -77,7 +76,44 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-if __name__ == '__main__':
-    if not os.path.exists('database'):
-        os.makedirs('database')
-    app.run(debug=True)
+# -----------------------------
+# API DE JUEGOS DE STEAM
+# -----------------------------
+@app.route('/api/juegos_steam')
+def juegos_steam():
+    import requests, random
+
+    try:
+        # 1. Obtener TODA la lista de juegos
+        url = "https://api.steampowered.com/ISteamApps/GetAppList/v2/"
+        resp = requests.get(url, timeout=10)
+
+        if resp.status_code != 200:
+            return {"error": "Steam no respondió correctamente"}, 500
+
+        data = resp.json()
+
+        juegos = data.get("applist", {}).get("apps", [])
+        if not juegos:
+            return {"error": "No se encontraron juegos"}, 500
+
+        seleccion = random.sample(juegos, 20)
+
+        juegos_final = []
+        for j in seleccion:
+            appid = j["appid"]
+            nombre = j["name"]
+
+            # Imagen del header (no siempre existe)
+            img_url = f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/header.jpg"
+
+            juegos_final.append({
+                "id": appid,
+                "nombre": nombre,
+                "imagen": img_url
+            })
+
+        return {"juegos": juegos_final}, 200
+
+    except Exception as e:
+        return {"error": f"Error interno: {str(e)}"}, 500
