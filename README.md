@@ -1,4 +1,4 @@
-#Proyecto: GAMEVAULT
+##Proyecto: GAMEVAULT
 
 GameVault es una plataforma web donde los usuarios pueden descubrir, compartir y subir juegos indie. 
 Incluye integración con la API de Steam, sistema de usuarios, carga de juegos y navegación dinámica estilo SPA.
