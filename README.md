@@ -11,8 +11,9 @@ Incluye integración con la API de Steam, sistema de usuarios, carga de juegos y
 - Navegación dinámica sin recargar la página (SPA)
 - Diseño moderno y responsivo
 
-- ## 📁 Estructura del proyecto (¡Tener en cuenta que, a la hora de descargar los archivos y probar el proyecto via VSCode, los archivos deben estar ubicados en su ruta correspondiente!)
-  ```bash
+## 📁 Estructura del proyecto
+
+```bash
 GameVault/
  ├─ app.py
  ├─ crear_tablas.py
