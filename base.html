@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GameVault</title>
+
+  <!-- CSS principal -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='estilos.css') }}">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/vanguard.ico') }}">
+
+  <!-- CSS crítico -->
+  <style>
+    html,body{height:100%;margin:0;padding:0}
+    body{background:#0e0e0e;color:#f0f0f0;font-family:Segoe UI,Tahoma,sans-serif}
+    header{background:#151515;padding:12px 20px;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+    .logo{color:#ff4655;font-weight:700;font-size:22px;margin:0;cursor:pointer;}
+    .nav-links{list-style:none;display:flex;gap:18px;margin:0;padding:0;align-items:center}
+    .nav-links a{color:#f0f0f0;text-decoration:none;cursor:pointer;}
+    footer{padding:12px 20px;color:#aaa;text-align:center}
+    .user-info a{color:#ff4655;text-decoration:none;margin-left:12px;}
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <nav class="navbar">
+      <div class="nav-left">
+
+        <!-- LOGO → navega a Inicio por SPA -->
+        <h1 class="logo" data-seccion="Inicio">GameVault</h1>
+
+        <ul class="nav-links">
+
+          <!-- Cada enlace ahora tiene href="#" para que sea clickeable en todos los navegadores -->
+          <li><a href="#" data-seccion="Inicio">Inicio</a></li>
+          <li><a href="#" data-seccion="Explorar">Explorar</a></li>
+          <li><a href="#" data-seccion="Comunidad">Comunidad</a></li>
+          <li><a href="#" data-seccion="Subir">Subir Juego</a></li>
+          <li><a href="#" data-seccion="Perfil">Perfil</a></li>
+        </ul>
+      </div>
+
+      <!-- 🟦 MOSTRAR LOGIN/REGISTRO O USUARIO SEGÚN SESIÓN -->
+      {% if nombre %}
+        <div class="user-info">
+          <span>Bienvenido, <strong>{{ nombre }}</strong></span>
+          <a href="{{ url_for('logout') }}">Cerrar sesión</a>
+        </div>
+      {% else %}
+        <div class="user-info">
+          <a href="{{ url_for('login') }}">Iniciar sesión</a>
+          <a href="{{ url_for('registro') }}">Registrarse</a>
+        </div>
+      {% endif %}
+
+    </nav>
+  </header>
+
+  <!-- CONTENIDO CONTROLADO ENTERAMENTE POR EL SPA -->
+  <main id="contenido-principal">
+      {% block content %}{% endblock %}
+  </main>
+
+  <footer>
+    <p>&copy; 2025 GameVault. Todos los derechos reservados.</p>
+  </footer>
+
+  <!-- JS del SPA -->
+  <script src="{{ url_for('static', filename='scripts.js') }}"></script>
+
+</body>
+</html>
