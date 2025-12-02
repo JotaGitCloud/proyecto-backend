@@ -1,7 +1,6 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, jsonify, session, send_from_directory
 import sqlite3
 import os
-import requests
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "database", "gamevault.db")
@@ -9,46 +8,9 @@ DB_PATH = os.path.join(BASE_DIR, "database", "gamevault.db")
 app = Flask(__name__)
 app.secret_key = "gamevault_key_2025"
 
-def obtener_juegos_steam():
-    try:
-        url = "https://api.steampowered.com/ISteamApps/GetAppList/v2/"
-        data = requests.get(url, timeout=5).json()
-
-        # Lista completa de apps de Steam
-        apps = data["applist"]["apps"]
-        
-        juegos = []
-
-        for app in apps[:40]:
-            appid = app["appid"]
-
-            # Consultar detalles para obtener imagen, nombre y precio
-            detalles_url = f"https://store.steampowered.com/api/appdetails?appids={appid}&cc=us&l=es"
-            resp = requests.get(detalles_url, timeout=5).json()
-
-            if not resp[str(appid)]["success"]:
-                continue
-
-            info = resp[str(appid)]["data"]
-
-            if "name" not in info or "header_image" not in info:
-                continue
-
-            juegos.append({
-                "name": info["name"],
-                "header_image": info.get("header_image", ""),
-                "price_overview": info.get("price_overview")
-            })
-
-            if len(juegos) >= 20:
-                break
-
-        return juegos
-
-    except Exception as e:
-        print("Error al obtener juegos de Steam:", e)
-        return []
-
+# ===========================================
+#   BASE DE DATOS
+# ===========================================
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -61,9 +23,9 @@ def ensure_tables():
     cur.execute("""
     CREATE TABLE IF NOT EXISTS usuarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nombre TEXT NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        contrasena TEXT NOT NULL,
+        nombre TEXT,
+        email TEXT UNIQUE,
+        contrasena TEXT,
         avatar TEXT
     );
     """)
@@ -73,8 +35,9 @@ def ensure_tables():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
         publisher TEXT,
-        short_description TEXT,
-        price TEXT
+        description TEXT,
+        image TEXT,
+        file TEXT
     );
     """)
 
@@ -83,14 +46,45 @@ def ensure_tables():
 
 ensure_tables()
 
-# ------------------ API´s ------------------
+# ===========================================
+#   Inicializar juegos existentes
+# ===========================================
+def inicializar_juegos_existentes():
+    conn = get_db()
+    cur = conn.cursor()
 
+    # Lista de juegos existentes (ejemplo con placeholder)
+    juegos_existentes = [
+        {"name": "Hollow Knight", "description": "Metroidvania épico", "image": "hollow_knight.jpg"},
+        {"name": "Counter Strike", "description": "Shooter táctico FPS", "image": "cs.jpg"},
+        {"name": "God of War: Ragnarok", "description": "Hack & Slash de acción", "image": "gow_ragnarok.jpg"},
+        {"name": "Resident Evil 7", "description": "Survival horror", "image": "re7.jpg"},
+        # ... agrega aquí los demás 296 juegos con la misma estructura
+    ]
+
+    for juego in juegos_existentes:
+        # Evitar duplicados
+        cur.execute("SELECT id FROM juegos WHERE name=? AND publisher='existente'", (juego["name"],))
+        if cur.fetchone():
+            continue
+        cur.execute("""
+            INSERT INTO juegos (name, publisher, description, image, file)
+            VALUES (?, ?, ?, ?, ?)
+        """, (juego["name"], "existente", juego.get("description", ""), juego.get("image", ""), ""))
+
+    conn.commit()
+    conn.close()
+
+inicializar_juegos_existentes()
+
+# ===========================================
+#   RUTAS PRINCIPALES
+# ===========================================
 @app.route("/")
 def inicio():
     if "usuario_id" in session:
         return render_template("index.html", nombre=session["nombre"])
     return redirect(url_for("login"))
-
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -113,7 +107,6 @@ def login():
 
     return render_template("login.html")
 
-
 @app.route("/registro", methods=["GET", "POST"])
 def registro():
     if request.method == "POST":
@@ -125,41 +118,31 @@ def registro():
         cur = conn.cursor()
 
         try:
-            cur.execute(
-                "INSERT INTO usuarios (nombre, email, contrasena) VALUES (?, ?, ?)",
-                (nombre, email, contrasena)
-            )
+            cur.execute("INSERT INTO usuarios (nombre, email, contrasena) VALUES (?, ?, ?)",
+                        (nombre, email, contrasena))
             conn.commit()
             user_id = cur.lastrowid
         except sqlite3.IntegrityError:
             conn.close()
-            return render_template("registro.html", error="El correo ya está registrado.")
+            return render_template("registro.html", error="Correo ya registrado.")
 
         conn.close()
-
         session["usuario_id"] = user_id
         session["nombre"] = nombre
-
         return redirect(url_for("inicio"))
 
     return render_template("registro.html")
-
 
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect(url_for("login"))
 
+# ===========================================
+#   API: JUEGOS
+# ===========================================
 @app.route("/api/juegos")
 def api_juegos():
-    try:
-        import requests
-        r = requests.get("https://steam-api-dot-steam-api-355303.uc.r.appspot.com/games?", timeout=4)
-        if r.ok:
-            return jsonify(r.json())
-    except:
-        pass
-
     conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT * FROM juegos ORDER BY id DESC")
@@ -167,29 +150,52 @@ def api_juegos():
     conn.close()
     return jsonify(rows)
 
-
 @app.route("/api/subir_juego", methods=["POST"])
 def subir_juego():
     if "usuario_id" not in session:
         return jsonify({"ok": False, "error": "No autenticado"}), 403
 
-    data = request.json
-    titulo = data.get("titulo")
-    descripcion = data.get("descripcion")
-    creador = session["nombre"]
+    titulo = request.form.get("titulo")
+    descripcion = request.form.get("descripcion")
+
+    if not titulo or not descripcion:
+        return jsonify({"ok": False, "error": "Faltan datos"}), 400
+
+    img_file = request.files.get("imagen")
+    file_file = request.files.get("archivo")
+
+    carpeta_imgs = os.path.join(BASE_DIR, "static", "uploads", "images")
+    carpeta_archivos = os.path.join(BASE_DIR, "static", "uploads", "files")
+    os.makedirs(carpeta_imgs, exist_ok=True)
+    os.makedirs(carpeta_archivos, exist_ok=True)
+
+    img_name = None
+    file_name = None
+
+    if img_file and img_file.filename:
+        img_name = img_file.filename
+        img_path = os.path.join(carpeta_imgs, img_name)
+        img_file.save(img_path)
+
+    if file_file and file_file.filename:
+        file_name = file_file.filename
+        file_path = os.path.join(carpeta_archivos, file_name)
+        file_file.save(file_path)
 
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
-        INSERT INTO juegos (name, publisher, short_description, price)
-        VALUES (?, ?, ?, ?)
-    """, (titulo, creador, descripcion, "Gratis"))
+        INSERT INTO juegos (name, publisher, description, image, file)
+        VALUES (?, ?, ?, ?, ?)
+    """, (titulo, session["nombre"], descripcion, img_name, file_name))
     conn.commit()
     conn.close()
 
     return jsonify({"ok": True})
 
-
+# ===========================================
+#   PERFIL API
+# ===========================================
 @app.route("/api/perfil")
 def api_perfil():
     if "usuario_id" not in session:
@@ -208,28 +214,33 @@ def api_perfil():
         "avatar": user["avatar"]
     })
 
-@app.route("/explorar")
-def explorar():
-    juegos_steam = obtener_juegos_steam() 
-    print(juegos_steam)
+# ===========================================
+#   SUBIR AVATAR
+# ===========================================
+@app.route("/api/subir_avatar", methods=["POST"])
+def subir_avatar():
+    if "usuario_id" not in session:
+        return jsonify({"ok": False}), 403
 
-    conn = sqlite3.connect("gamevault.db")
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    if "avatar" not in request.files:
+        return jsonify({"ok": False, "error": "No file"}), 400
 
-    cursor.execute("SELECT titulo, descripcion, imagen FROM juegos")
-    juegos_usuario = cursor.fetchall()
+    archivo = request.files["avatar"]
+    if archivo.filename == "":
+        return jsonify({"ok": False}), 400
 
+    carpeta = os.path.join(BASE_DIR, "static", "avatars")
+    os.makedirs(carpeta, exist_ok=True)
+
+    archivo.save(os.path.join(carpeta, archivo.filename))
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("UPDATE usuarios SET avatar=? WHERE id=?", (archivo.filename, session["usuario_id"]))
+    conn.commit()
     conn.close()
 
-    return render_template(
-        "explorar.html",
-        juegos_steam=juegos_steam,
-        juegos_usuario=juegos_usuario,
-        nombre=session.get("nombre")
-    )
+    return jsonify({"ok": True, "avatar": archivo.filename})
 
-
-# ------------------ MAIN ------------------
 if __name__ == "__main__":
     app.run(debug=True)
